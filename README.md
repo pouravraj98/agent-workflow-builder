@@ -34,7 +34,8 @@ src/
 │   └── usePanZoom.ts                # Canvas pan/zoom with mouse wheel + drag
 │
 ├── data/
-│   └── mockData.ts                  # Mock personas, responses, voice options, sample data, helpers
+│   ├── mockData.ts                  # Mock personas, responses, voice options, sample data, helpers
+│   └── agentTemplates.ts            # Agent templates (3 chat + 3 voice) with workflow builders
 │
 ├── components/
 │   ├── AgentDashboard.tsx           # Landing page — agent card grid, create/delete agents
@@ -154,7 +155,13 @@ Each agent has a `mode: 'chat' | 'voice'` property set at creation time. Both mo
 
 #### Seed Data
 
-New agents are automatically seeded with sample test scenarios (4), simulations (12), and conversation logs (5) from `mockData.ts`. Each sample gets a unique ID and is scoped to the new agent.
+New agents are automatically seeded with sample test scenarios (4), simulations (12), and conversation logs (5) from `mockData.ts`. Voice agents get voice-specific seed data (call logs with recording URLs, transcripts, latency/cost data, phone numbers). Each sample gets a unique ID and is scoped to the new agent.
+
+#### Sample Workflows
+
+New agents are created with a 5-node sample workflow (not just Start → Agent). The workflow varies by template selection:
+- **With template**: Each template defines its own `buildWorkflow()` function generating use-case-specific nodes and edges
+- **Blank / default**: Chat gets Start → Agent → Search KB → Specialist → End; Voice gets Start → Agent → Lookup Order → Escalation → End Call
 
 #### Resource Model: Shared + Override
 
@@ -230,11 +237,30 @@ Dashboard items:                   Agent items:
 
 ### Agent Creation
 
-**CreateAgentWizard** (`src/components/CreateAgentWizard.tsx`) — Two-step wizard:
+**CreateAgentWizard** (`src/components/CreateAgentWizard.tsx`) — Three-step wizard:
 1. **Step 1 — Mode**: Choose Chat or Voice with descriptive cards
-2. **Step 2 — Details**: Name, description, system prompt fields
+2. **Step 2 — Template**: Choose from 3 use-case templates or start blank
+3. **Step 3 — Details**: Name, description, system prompt (pre-filled from template)
 
-Both modes create the same workflow structure (Start → Agent, 2 nodes). Voice agents get teal accent color (`#14b8a6`) and headphones avatar by default.
+Templates are defined in `src/data/agentTemplates.ts`. Each template includes a name, description, system prompt, icon, color, and a `buildWorkflow()` function that generates a use-case-specific multi-node workflow.
+
+#### Chat Templates
+
+| Template | Workflow | Description |
+|----------|----------|-------------|
+| **Customer Support** | Start → Agent → Search KB (tool) → Escalation (agent) → End | FAQ handling, ticket routing, knowledge base lookups |
+| **Lead Qualification** | Start → Agent → CRM Lookup (tool) → Book Meeting (tool) → End | Qualify prospects, collect info, schedule meetings |
+| **Knowledge Assistant** | Start → Agent → Search Docs (tool) → Summarize (tool) → End | Internal docs/wiki search with citations |
+
+#### Voice Templates
+
+| Template | Workflow | Description |
+|----------|----------|-------------|
+| **Phone Support** | Start → Agent → Lookup Order (tool) → Escalation (agent) → End Call | Inbound call center (order status, returns) |
+| **Appointment Booking** | Start → Agent → Check Calendar (tool) → Confirm Booking (tool) → End Call | Schedule, reschedule, cancel appointments |
+| **Outbound Sales** | Start → Agent → CRM Lookup (tool) → Schedule Follow-up (tool) → End Call | Outbound sales calls with pitch and follow-up |
+
+**Blank option**: Starts with a default sample workflow (same as before templates were added).
 
 ### Workflow Canvas Layout
 
@@ -257,7 +283,8 @@ When inside an agent on the workflow view:
 ```
 
 - **Right panel** (520px, workflow view only): Inspector/Emulator tabs via `InspectorEmulatorPanel`
-  - Inspector: auto-activates on node/edge selection, shows config or empty state
+  - Both tabs always visible; Inspector tab is disabled (dimmed) when no node/edge is selected
+  - Inspector: auto-activates on node/edge selection, auto-switches to Emulator on deselection
   - Emulator: mode-aware — Chat agents get Chat + Scenarios, Voice agents get Voice + Scenarios
 - **Bottom panel** (collapsible, below canvas): Event Debugger, Logs, JSON via `BottomPanel`
 - **Full-page views**: AgentAppearancePage, SimulatePage, LogsPage, KnowledgeBasePage, ToolsPage — replace the canvas when active
@@ -378,9 +405,27 @@ Two access points for simulation functionality:
 
 ### Conversation Logs
 
-**LogsPage** (full-page, from sidebar or TopBar) — Master-detail layout:
-- **Left column** (360px): Filterable list of saved conversations with derived title, persona, message count, duration, and status badges (Resolved/Escalated/Pending). Search across messages and personas.
-- **Right column**: Full message thread with chat bubbles, event traces (tools, guardrails), timestamps, and status indicator. "Create Test Scenario" converts a log into a new simulation.
+**LogsPage** (full-page, from sidebar or TopBar) — Master-detail layout, mode-aware:
+
+- **Left column** (360px): Filterable list of conversations/calls. Search across messages, personas, and phone numbers. Status badges (Resolved/Escalated/Pending).
+- **Right column**: Mode-aware detail view:
+
+**Chat mode:**
+- Full message thread with chat bubbles (max-w-[85%]), event traces, timestamps
+
+**Voice mode:**
+- **Recording player**: Play/pause with progress bar for call recordings
+- **Call metadata**: Direction icon, phone numbers, badges for duration/end reason/success evaluation
+- **Transcript tab**: Per-turn messages with STT confidence (color-coded), agent latency, interruption markers
+- **Analysis tab**: AI-generated call summary, sentiment bar, latency metrics grid (e2e/STT/LLM/TTS), cost breakdown table (STT/LLM/TTS/Telephony/Total), call details
+
+Voice log data model matches industry platforms (ElevenLabs, Vapi, Retell AI):
+- `ConversationMessage`: confidence, interrupted, latencyMs, isSilence
+- `CallCost`: stt, llm, tts, telephony, total
+- `CallLatency`: e2e, stt, llm, tts
+- `ConversationLog`: callType, direction, fromNumber, toNumber, duration, endReason, recordingUrl, summary, sentiment, successEvaluation, cost, latency
+
+"Create Test Scenario" converts a log into a new simulation (adapts labels for voice: "call" instead of "conversation").
 
 ### Mock Data System
 
