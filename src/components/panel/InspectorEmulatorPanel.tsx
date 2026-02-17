@@ -71,7 +71,7 @@ export default function InspectorEmulatorPanel({
   }, [selectedNode?.id, selectedEdge?.id]);
 
   return (
-    <div className="flex h-full w-[520px] flex-col border-l bg-background shrink-0">
+    <div className="flex h-full w-[520px] max-w-full flex-col border-l bg-background shrink-0">
       {/* Tab switcher — always visible */}
       <div className="flex items-center px-3 py-2 border-b shrink-0">
         <div className="flex gap-0.5 bg-muted rounded-lg p-0.5 flex-1">

@@ -223,7 +223,7 @@ export default function LogsPage({
                     <button
                       key={log.id}
                       className={`w-full px-5 py-3.5 text-left transition-colors ${
-                        isSelected ? 'bg-primary/5 border-l-2 border-l-primary' : 'hover:bg-accent/30'
+                        isSelected ? 'bg-primary/10 border-l-2 border-l-primary' : 'hover:bg-accent/30'
                       }`}
                       onClick={() => { setSelectedLogId(log.id); setDetailTab('transcript'); setIsPlaying(false); }}
                     >
@@ -584,18 +584,26 @@ export default function LogsPage({
                             <DollarSign className="h-4 w-4 text-muted-foreground" />
                             Cost Breakdown
                           </h3>
-                          <div className="rounded-lg border overflow-hidden">
-                            <div className="grid grid-cols-5 text-[11px] font-medium text-muted-foreground bg-muted/40 px-3 py-2">
-                              <span>STT</span><span>LLM</span><span>TTS</span><span>Telephony</span><span className="text-foreground">Total</span>
-                            </div>
-                            <div className="grid grid-cols-5 text-[13px] px-3 py-2.5">
-                              <span>${selectedLog.cost.stt.toFixed(3)}</span>
-                              <span>${selectedLog.cost.llm.toFixed(3)}</span>
-                              <span>${selectedLog.cost.tts.toFixed(3)}</span>
-                              <span>${selectedLog.cost.telephony.toFixed(3)}</span>
-                              <span className="font-semibold">${selectedLog.cost.total.toFixed(3)}</span>
-                            </div>
-                          </div>
+                          <table className="w-full rounded-lg border overflow-hidden text-left">
+                            <thead>
+                              <tr className="text-[11px] font-medium text-muted-foreground bg-muted/40">
+                                <th className="px-3 py-2 font-medium">STT</th>
+                                <th className="px-3 py-2 font-medium">LLM</th>
+                                <th className="px-3 py-2 font-medium">TTS</th>
+                                <th className="px-3 py-2 font-medium">Telephony</th>
+                                <th className="px-3 py-2 font-medium text-foreground">Total</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr className="text-[13px]">
+                                <td className="px-3 py-2.5">${selectedLog.cost.stt.toFixed(3)}</td>
+                                <td className="px-3 py-2.5">${selectedLog.cost.llm.toFixed(3)}</td>
+                                <td className="px-3 py-2.5">${selectedLog.cost.tts.toFixed(3)}</td>
+                                <td className="px-3 py-2.5">${selectedLog.cost.telephony.toFixed(3)}</td>
+                                <td className="px-3 py-2.5 font-semibold">${selectedLog.cost.total.toFixed(3)}</td>
+                              </tr>
+                            </tbody>
+                          </table>
                         </div>
                       )}
 

@@ -105,7 +105,7 @@ export default function AgentDashboard({
                           : 'text-muted-foreground hover:text-destructive hover:bg-destructive/5'
                       }`}
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-3.5 w-3.5" />
                       {isConfirming && <span>Confirm</span>}
                     </div>
                   </div>
