@@ -3,6 +3,7 @@ import {
   SAMPLE_SCENARIOS, SAMPLE_SIMULATIONS, SAMPLE_LOGS,
   SAMPLE_VOICE_SCENARIOS, SAMPLE_VOICE_SIMULATIONS, SAMPLE_VOICE_LOGS,
 } from '@/data/mockData';
+import { CHAT_TEMPLATES, VOICE_TEMPLATES } from '@/data/agentTemplates';
 
 export type NodeType = 'start' | 'agent' | 'tool' | 'end';
 
@@ -224,7 +225,7 @@ export function useCanvasState() {
 
   // ── Agent CRUD ──
 
-  const createAgent = useCallback((name: string, description: string, systemPrompt: string, mode: 'chat' | 'voice' = 'chat') => {
+  const createAgent = useCallback((name: string, description: string, systemPrompt: string, mode: 'chat' | 'voice' = 'chat', templateId?: string) => {
     const newAgent: Agent = {
       id: generateId('agent'),
       name,
@@ -288,43 +289,51 @@ export function useCanvasState() {
       maxConsecutiveFailures: 3, failureAction: 'escalate',
     };
 
-    // Build sample workflow nodes
-    const startNode: WorkflowNode = { id: generateId('node'), type: 'start', label: 'Start', x: 400, y: 60, config: {} };
-    const mainAgentNode: WorkflowNode = { id: generateId('node'), type: 'agent', label: name, x: 400, y: 280, config: agentConfig };
-
+    // Build workflow — use template if provided, otherwise default
     let initialNodes: WorkflowNode[];
     let initialEdges: WorkflowEdge[];
 
-    if (mode === 'voice') {
-      // Voice workflow: Start → Main Agent → (Tool: Lookup) → (Escalation Agent) → End
-      const lookupTool: WorkflowNode = { id: generateId('node'), type: 'tool', label: 'Lookup Order', x: 160, y: 520, config: { toolName: 'lookup_order', toolDescription: 'Look up order status by order number' } };
-      const escalationAgent: WorkflowNode = { id: generateId('node'), type: 'agent', label: 'Escalation', x: 640, y: 520, config: { ...agentConfig, conversationGoal: 'Handle escalated calls that require human-level support', overridePrompt: true, customPrompt: 'You are an escalation specialist. The caller has been transferred to you because the primary agent could not resolve their issue. Review the context, empathize, and work toward a resolution.' } };
-      const endNode: WorkflowNode = { id: generateId('node'), type: 'end', label: 'End Call', x: 400, y: 740, config: {} };
+    const allTemplates = [...CHAT_TEMPLATES, ...VOICE_TEMPLATES];
+    const template = templateId ? allTemplates.find(t => t.id === templateId) : undefined;
 
-      initialNodes = [startNode, mainAgentNode, lookupTool, escalationAgent, endNode];
-      initialEdges = [
-        { id: generateId('edge'), sourceId: startNode.id, targetId: mainAgentNode.id, type: 'default', label: '', condition: '' },
-        { id: generateId('edge'), sourceId: mainAgentNode.id, targetId: lookupTool.id, type: 'conditional', label: 'Needs lookup', condition: 'User asks about order status' },
-        { id: generateId('edge'), sourceId: mainAgentNode.id, targetId: escalationAgent.id, type: 'escalate', label: 'Escalate', condition: 'User requests manager or agent cannot resolve' },
-        { id: generateId('edge'), sourceId: mainAgentNode.id, targetId: endNode.id, type: 'default', label: 'Resolved', condition: 'Issue resolved successfully' },
-        { id: generateId('edge'), sourceId: lookupTool.id, targetId: mainAgentNode.id, type: 'default', label: 'Return result', condition: '' },
-        { id: generateId('edge'), sourceId: escalationAgent.id, targetId: endNode.id, type: 'default', label: 'Done', condition: '' },
-      ];
+    if (template) {
+      const result = template.buildWorkflow(name, agentConfig, generateId);
+      initialNodes = result.nodes;
+      initialEdges = result.edges;
     } else {
-      // Chat workflow: Start → Main Agent → (Tool: Search KB) → (Handoff Agent) → End
-      const searchTool: WorkflowNode = { id: generateId('node'), type: 'tool', label: 'Search Knowledge Base', x: 160, y: 520, config: { toolName: 'search_kb', toolDescription: 'Search the knowledge base for relevant articles and documentation' } };
-      const handoffAgent: WorkflowNode = { id: generateId('node'), type: 'agent', label: 'Specialist', x: 640, y: 520, config: { ...agentConfig, conversationGoal: 'Provide in-depth technical support for complex issues', overridePrompt: true, customPrompt: 'You are a technical specialist. The user has been handed off to you for a complex issue. Review the conversation context and provide detailed, expert-level assistance.' } };
-      const endNode: WorkflowNode = { id: generateId('node'), type: 'end', label: 'End', x: 400, y: 740, config: {} };
+      // Default workflow
+      const startNode: WorkflowNode = { id: generateId('node'), type: 'start', label: 'Start', x: 400, y: 60, config: {} };
+      const mainAgentNode: WorkflowNode = { id: generateId('node'), type: 'agent', label: name, x: 400, y: 280, config: agentConfig };
 
-      initialNodes = [startNode, mainAgentNode, searchTool, handoffAgent, endNode];
-      initialEdges = [
-        { id: generateId('edge'), sourceId: startNode.id, targetId: mainAgentNode.id, type: 'default', label: '', condition: '' },
-        { id: generateId('edge'), sourceId: mainAgentNode.id, targetId: searchTool.id, type: 'conditional', label: 'Needs info', condition: 'User question requires knowledge base lookup' },
-        { id: generateId('edge'), sourceId: mainAgentNode.id, targetId: handoffAgent.id, type: 'handoff', label: 'Handoff', condition: 'Complex issue requiring specialist' },
-        { id: generateId('edge'), sourceId: mainAgentNode.id, targetId: endNode.id, type: 'default', label: 'Resolved', condition: 'Issue resolved successfully' },
-        { id: generateId('edge'), sourceId: searchTool.id, targetId: mainAgentNode.id, type: 'default', label: 'Return result', condition: '' },
-        { id: generateId('edge'), sourceId: handoffAgent.id, targetId: endNode.id, type: 'default', label: 'Done', condition: '' },
-      ];
+      if (mode === 'voice') {
+        const lookupTool: WorkflowNode = { id: generateId('node'), type: 'tool', label: 'Lookup Order', x: 160, y: 520, config: { toolName: 'lookup_order', toolDescription: 'Look up order status by order number' } };
+        const escalationAgent: WorkflowNode = { id: generateId('node'), type: 'agent', label: 'Escalation', x: 640, y: 520, config: { ...agentConfig, conversationGoal: 'Handle escalated calls that require human-level support', overridePrompt: true, customPrompt: 'You are an escalation specialist. The caller has been transferred to you because the primary agent could not resolve their issue. Review the context, empathize, and work toward a resolution.' } };
+        const endNode: WorkflowNode = { id: generateId('node'), type: 'end', label: 'End Call', x: 400, y: 740, config: {} };
+
+        initialNodes = [startNode, mainAgentNode, lookupTool, escalationAgent, endNode];
+        initialEdges = [
+          { id: generateId('edge'), sourceId: startNode.id, targetId: mainAgentNode.id, type: 'default', label: '', condition: '' },
+          { id: generateId('edge'), sourceId: mainAgentNode.id, targetId: lookupTool.id, type: 'conditional', label: 'Needs lookup', condition: 'User asks about order status' },
+          { id: generateId('edge'), sourceId: mainAgentNode.id, targetId: escalationAgent.id, type: 'escalate', label: 'Escalate', condition: 'User requests manager or agent cannot resolve' },
+          { id: generateId('edge'), sourceId: mainAgentNode.id, targetId: endNode.id, type: 'default', label: 'Resolved', condition: 'Issue resolved successfully' },
+          { id: generateId('edge'), sourceId: lookupTool.id, targetId: mainAgentNode.id, type: 'default', label: 'Return result', condition: '' },
+          { id: generateId('edge'), sourceId: escalationAgent.id, targetId: endNode.id, type: 'default', label: 'Done', condition: '' },
+        ];
+      } else {
+        const searchTool: WorkflowNode = { id: generateId('node'), type: 'tool', label: 'Search Knowledge Base', x: 160, y: 520, config: { toolName: 'search_kb', toolDescription: 'Search the knowledge base for relevant articles and documentation' } };
+        const handoffAgent: WorkflowNode = { id: generateId('node'), type: 'agent', label: 'Specialist', x: 640, y: 520, config: { ...agentConfig, conversationGoal: 'Provide in-depth technical support for complex issues', overridePrompt: true, customPrompt: 'You are a technical specialist. The user has been handed off to you for a complex issue. Review the conversation context and provide detailed, expert-level assistance.' } };
+        const endNode: WorkflowNode = { id: generateId('node'), type: 'end', label: 'End', x: 400, y: 740, config: {} };
+
+        initialNodes = [startNode, mainAgentNode, searchTool, handoffAgent, endNode];
+        initialEdges = [
+          { id: generateId('edge'), sourceId: startNode.id, targetId: mainAgentNode.id, type: 'default', label: '', condition: '' },
+          { id: generateId('edge'), sourceId: mainAgentNode.id, targetId: searchTool.id, type: 'conditional', label: 'Needs info', condition: 'User question requires knowledge base lookup' },
+          { id: generateId('edge'), sourceId: mainAgentNode.id, targetId: handoffAgent.id, type: 'handoff', label: 'Handoff', condition: 'Complex issue requiring specialist' },
+          { id: generateId('edge'), sourceId: mainAgentNode.id, targetId: endNode.id, type: 'default', label: 'Resolved', condition: 'Issue resolved successfully' },
+          { id: generateId('edge'), sourceId: searchTool.id, targetId: mainAgentNode.id, type: 'default', label: 'Return result', condition: '' },
+          { id: generateId('edge'), sourceId: handoffAgent.id, targetId: endNode.id, type: 'default', label: 'Done', condition: '' },
+        ];
+      }
     }
 
     // Seed with sample data — voice agents get voice-specific data

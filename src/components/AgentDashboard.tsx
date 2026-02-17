@@ -16,7 +16,7 @@ const AVATAR_ICONS: Record<string, React.ComponentType<{ className?: string; sty
 
 interface AgentDashboardProps {
   agents: Record<string, AgentState>;
-  onCreateAgent: (name: string, description: string, systemPrompt: string, mode: 'chat' | 'voice') => void;
+  onCreateAgent: (name: string, description: string, systemPrompt: string, mode: 'chat' | 'voice', templateId?: string) => void;
   onDeleteAgent: (agentId: string) => void;
   onSelectAgent: (agentId: string) => void;
 }
